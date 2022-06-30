@@ -62,8 +62,8 @@ class TransportManager {
   constructor(){
 
   }
-  async getTransport(transportType: keyof TransportCacheMap){
-    if(this.transportMap[transportType]){
+  async getTransport(transportType: keyof TransportCacheMap): Promise<Transport>{
+    if(this.transportMap.hasOwnProperty(transportType)&&this.transportMap[transportType]){
       return this.transportMap[transportType];
     }else{
       const _this = this;
@@ -74,6 +74,7 @@ class TransportManager {
           _this.clearPublicKeyCacheForTransportType("usb");
           delete _this.transportMap.usb;
         })
+        return transport;
       }else if(transportType === "bluetooth"){
         const transport = await BluetoothTransport.create()
         this.transportMap.bluetooth = transport;
@@ -81,6 +82,7 @@ class TransportManager {
           _this.clearPublicKeyCacheForTransportType("bluetooth");
           delete _this.transportMap.bluetooth;
         })
+        return transport;
       }else{
         throw new Error("Unknown transport type!")
       }
