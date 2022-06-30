@@ -1,4 +1,4 @@
-import Transport from '@ledgerhq/hw-transport-u2f'
+import Transport from '@ledgerhq/hw-transport'
 import { Api, JsonRpc, Serialize } from 'zswjs'
 import { JsSignatureProvider } from 'zswjs/dist/zswjs-jssig'
 
@@ -6,7 +6,9 @@ import ecc from 'zsw-crypto'
 
 import asn1 from 'asn1-ber'
 import Buff from 'buffer/'
-
+import TransportWebUSB from '@ledgerhq/hw-transport-webusb'
+import BluetoothTransport from '@ledgerhq/hw-transport-web-ble'
+import bippath from 'bip32-path'
 declare const TextDecoder: any
 declare const TextEncoder: any
 
@@ -21,15 +23,209 @@ export enum LEDGER_CODES {
   P1_MORE = 0x80,
 }
 
-export const GET_LEDGER_PATHS =  (index = 0) => `44'/194'/0'/0/${index}`
-
-let cachedTransport: any
-export async function getTransport() {
-  if (cachedTransport) {
-    return cachedTransport
+export interface TransportPathPair {
+  transportType: TransportType;
+  path: string;
+}
+export function transportPathPairToString(tpp: TransportPathPair){
+  return tpp.transportType+":"+tpp.path;
+}
+export function convertShortHandPaths(s: string){
+  if(s.indexOf("/")===-1 && parseInt(s, 10).toString() === s){
+    return GET_LEDGER_PATHS(parseInt(s, 10));
+  }else{
+    return s;
   }
-  cachedTransport = await Transport.create()
-  return cachedTransport
+}
+export function stringToTransportPathPair(str: string): TransportPathPair{
+  const ind = str.indexOf(":");
+  if(ind !== -1){
+    return {
+      transportType: str.substring(0, ind) as any,
+      path: convertShortHandPaths(str.substring(ind+1)),
+    }
+  }else{
+    throw new Error("Invalid transport path pair string!")
+  }
+
+}
+export const GET_LEDGER_PATHS =  (index = 0) => `44'/194'/0'/0/${index}`
+export type TransportCacheMap = {
+  bluetooth?: Transport,
+  usb?: Transport,
+};
+export type TransportType = keyof TransportCacheMap;
+class TransportManager {
+  
+  public transportMap: TransportCacheMap = {};
+  public publicKeyMap: {[type: string]:any};
+  constructor(){
+
+  }
+  async getTransport(transportType: keyof TransportCacheMap){
+    if(this.transportMap[transportType]){
+      return this.transportMap[transportType];
+    }else{
+      const _this = this;
+      if(transportType === "usb"){
+        const transport = await TransportWebUSB.create()
+        this.transportMap.usb = transport;
+        transport.on("disconnect",()=>{
+          _this.clearPublicKeyCacheForTransportType("usb");
+          delete _this.transportMap.usb;
+        })
+      }else if(transportType === "bluetooth"){
+        const transport = await BluetoothTransport.create()
+        this.transportMap.bluetooth = transport;
+        transport.on("disconnect",()=>{
+          _this.clearPublicKeyCacheForTransportType("bluetooth");
+          delete _this.transportMap.bluetooth;
+        })
+      }else{
+        throw new Error("Unknown transport type!")
+      }
+    }
+
+  }
+  clearPublicKeyCacheForTransportType(transportType: TransportType){
+    Object.keys(this.publicKeyMap).filter(k=>stringToTransportPathPair(k).transportType === transportType).forEach(k=>{
+      delete this.publicKeyMap[k];
+    });
+
+  }
+  async getTransportPathPairFromCacheForPublicKey(publicKey: string): Promise<TransportPathPair | null> {
+    const keys = Object.keys(this.publicKeyMap);
+    for(let k of keys){
+      if(this.publicKeyMap[k] === publicKey){
+        return stringToTransportPathPair(k);
+      }
+    }
+    return null;
+  }
+  async getPublicKeyCached(tpp: TransportPathPair, requestPermission = true): Promise<string>{
+    const key = transportPathPairToString(tpp);
+    if(this.publicKeyMap.hasOwnProperty(key) && this.publicKeyMap[key]){
+      return this.publicKeyMap[key];
+    }
+    const pk = await this.getPublicKey(tpp, requestPermission);
+    this.publicKeyMap[key] = pk;
+    return pk;
+  }
+
+  async getPublicKey(tpp: TransportPathPair, requestPermission = true): Promise<string>{
+    const transport = await this.getTransport(tpp.transportType);
+    
+    return await (new Promise((resolve, reject) => {
+      setTimeout(() => {
+        //const path = GET_LEDGER_PATHS(this.publicKeyIndex)
+        const paths = bippath.fromString(tpp.path).toPathArray()
+        const buffer = Buff.Buffer.alloc(1 + paths.length * 4)
+        buffer[0] = paths.length
+        paths.forEach((element: number, index: number) => {
+          buffer.writeUInt32BE(element, 1 + 4 * index)
+        })
+
+        return transport
+          .send(
+            LEDGER_CODES.CLA,
+            LEDGER_CODES.INS_GET_PUBLIC_KEY,
+            requestPermission ? LEDGER_CODES.P1_CONFIRM : LEDGER_CODES.P1_NON_CONFIRM,
+            LEDGER_CODES.P1_NON_CONFIRM,
+            buffer as any
+          )
+          .then((response: any) => {
+
+            const publicKeyLength = response[0]
+            const addressLength = response[1 + publicKeyLength]
+
+            resolve(response
+              .slice(
+                1 + publicKeyLength + 1,
+                1 + publicKeyLength + 1 + addressLength
+              )
+              .toString('ascii'))
+          }).catch((err: Error) => {
+            reject(err)
+          })
+      }, 1)
+    }));
+  }
+
+  /**
+   * @returns A Signed ZSW transaction
+   */
+   public async signTransaction(
+    tpp: TransportPathPair,
+    { chainId, serializedTransaction }: { chainId: string, serializedTransaction: Uint8Array }
+    ) {
+    //const path = GET_LEDGER_PATHS(this.publicKeyIndex)
+    const transport = await getTransport(tpp.transportType);
+
+    const paths = bippath.fromString(tpp.path).toPathArray()
+    let offset = 0
+    let transactionBuffer
+
+    try {
+      transactionBuffer = serialize(chainId, serializedTransaction).toString('hex')
+    } catch (error) {
+      console.error(error)
+      throw new Error('Unable to deserialize transaction')
+    }
+
+    const rawTx = Buff.Buffer.from(transactionBuffer, 'hex')
+    const toSend = []
+    let response: any
+    while (offset !== rawTx.length) {
+      const maxChunkSize = offset === 0 ? 150 - 1 - paths.length * 4 : 150
+      const chunkSize =
+        offset + maxChunkSize > rawTx.length
+          ? rawTx.length - offset
+          : maxChunkSize
+      const buffer = Buff.Buffer.alloc(
+        offset === 0 ? 1 + paths.length * 4 + chunkSize : chunkSize
+      )
+      if (offset === 0) {
+        buffer[0] = paths.length
+        paths.forEach((element: number, index: number) => {
+          buffer.writeUInt32BE(element, 1 + 4 * index)
+        })
+        rawTx.copy(buffer, 1 + 4 * paths.length, offset, offset + chunkSize)
+      } else {
+        rawTx.copy(buffer, 0, offset, offset + chunkSize)
+      }
+      toSend.push(buffer)
+      offset += chunkSize
+    }
+
+    return iteratePromises(toSend, (data: any[], i: number) =>
+      transport
+        .send(
+          LEDGER_CODES.CLA,
+          LEDGER_CODES.INS_SIGN,
+          i === 0 ? LEDGER_CODES.P1_FIRST : LEDGER_CODES.P1_MORE,
+          LEDGER_CODES.P1_NON_CONFIRM,
+          data as any,
+         )
+        .then((apduResponse: any) => {
+          response = apduResponse
+          return response
+        })
+      ).then(() => {
+        const v = response.slice(0, 1).toString('hex')
+        const r = response.slice(1, 1 + 32).toString('hex')
+        const s = response.slice(1 + 32, 1 + 32 + 32).toString('hex')
+        return convertSignatures(v + r + s)
+      }).catch((error) => {
+        console.error(error)
+        throw error
+      })
+  }
+}
+export const baseTransportManager = new TransportManager();
+
+
+export async function getTransport(transportType: keyof TransportCacheMap) {
+  return await baseTransportManager.getTransport(transportType);
 }
 
 export const convertSignatures = (sigs: string[]): string[] => {
