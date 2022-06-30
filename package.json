@@ -1,7 +1,7 @@
 {
-  "name": "eosjs-ledger-signature-provider",
+  "name": "zswjs-ledger-signature-provider",
   "version": "0.1.2",
-  "description": "A Signature provider for communicating with eosjs from a Ledger device.",
+  "description": "A Signature provider for communicating with zswjs from a Ledger device.",
   "author": {
     "name": "block.one",
     "url": "https://www.block.one"
@@ -30,8 +30,8 @@
     "asn1-ber": "1.0.9",
     "bip32-path": "0.4.2",
     "buffer": "5.2.1",
-    "eosjs": "20.0.0",
-    "eosjs-ecc": "4.0.4"
+    "zswjs": "1.3.5",
+    "zsw-crypto": "1.1.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.6.0",

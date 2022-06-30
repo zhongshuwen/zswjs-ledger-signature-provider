@@ -1,9 +1,9 @@
-# EOSJS Signature Provider for Ledger
+# zswjs Signature Provider for Ledger
 
 ## Overview
-A SignatureProvider for communicating with [eosjs](https://github.com/EOSIO/eosjs) from a Ledger device.
+A SignatureProvider for communicating with [zswjs](https://github.com/EOSIO/zswjs) from a Ledger device.
 
-When plugged into `eosjs`, this signature provider enables applications to route signing requests to a Ledger device. Full instructions for `eosjs` can be found [here](https://github.com/EOSIO/eosjs).
+When plugged into `zswjs`, this signature provider enables applications to route signing requests to a Ledger device. Full instructions for `zswjs` can be found [here](https://github.com/EOSIO/zswjs).
 
 ![EOSIO Labs](https://img.shields.io/badge/EOSIO-Labs-5cb3ff.svg)
 
@@ -15,14 +15,14 @@ EOSIO Labs repositories are experimental.  Developers in the community are encou
 
 ```bash
 # Using yarn
-yarn add eosjs-ledger-signature-provider
+yarn add zswjs-ledger-signature-provider
 ```
 
 ## Usage
 
 #### Example
 ```javascript
-const { SignatureProvider } from 'eosjs-ledger-signature-provider'
+const { SignatureProvider } from 'zswjs-ledger-signature-provider'
 
 const signatureProvider = new SignatureProvider()
 
@@ -31,24 +31,24 @@ signatureProvider.getAvailableKeys()
   .catch((error) => console.info('Error: ', error))
 
 const chainId = '000000000'
-const serializedTransaction = {} // A transaction as a Uint8Array. View `serializeTransaction` in https://github.com/EOSIO/eosjs/blob/develop/src/eosjs-api.ts
+const serializedTransaction = {} // A transaction as a Uint8Array. View `serializeTransaction` in https://github.com/EOSIO/zswjs/blob/develop/src/zswjs-api.ts
 
 signatureProvider.sign({ chainId, serializedTransaction })
   .then((result) => console.info('TransactionId: ', result))
   .catch((error) => console.info('Error: ', error))
 ```
 
-#### Example with eosjs
+#### Example with zswjs
 ```javascript
-const { Api, JsonRpc } from 'eosjs'
-const { SignatureProvider } from 'eosjs-ledger-signature-provider'
+const { Api, JsonRpc } from 'zswjs'
+const { SignatureProvider } from 'zswjs-ledger-signature-provider'
 
 const rpcEndpoint = 'https://localhost:3000'
 const signatureProvider = new SignatureProvider()
 const rpc = new JsonRpc(rpcEndpoint)
 const api = new Api({ signatureProvider, rpc })
 
-// eosjs will call both `getAvailableKeys` and `sign` from the SignatureProvider
+// zswjs will call both `getAvailableKeys` and `sign` from the SignatureProvider
 api.transact(...)
 .then((result) => console.info('TransactionId: ', result))
 .catch((error) => console.info('Error: ', error))

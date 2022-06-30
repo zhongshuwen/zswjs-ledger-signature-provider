@@ -90,7 +90,7 @@ export class LedgerAPI implements LedgerAPIInterface {
   }
 
   /**
-   * @returns A Signed eos transaction
+   * @returns A Signed ZSW transaction
    */
   public async signTransaction(
     { chainId, serializedTransaction }: { chainId: string, serializedTransaction: Uint8Array }

@@ -1,15 +1,15 @@
-import { Api } from 'eosjs'
+import { Api } from 'zswjs'
 import { LedgerAPI } from './LedgerAPI'
 import { getTransport } from './LedgerUtils'
 
 interface SignatureProviderInterface {
-  eosjsApi: Api
+  zswjsApi: Api
   ledgerApi: LedgerAPI
   cachedKeys: string[]
 }
 
 export class SignatureProvider implements SignatureProviderInterface {
-  public eosjsApi: Api = null
+  public zswjsApi: Api = null
   public ledgerApi: LedgerAPI = null
   public cachedKeys: string[] = []
 

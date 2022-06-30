@@ -1,8 +1,8 @@
 import Transport from '@ledgerhq/hw-transport-u2f'
-import { Api, JsonRpc, Serialize } from 'eosjs'
-import { JsSignatureProvider } from 'eosjs/dist/eosjs-jssig'
+import { Api, JsonRpc, Serialize } from 'zswjs'
+import { JsSignatureProvider } from 'zswjs/dist/zswjs-jssig'
 
-import ecc from 'eosjs-ecc'
+import ecc from 'zsw-crypto'
 
 import asn1 from 'asn1-ber'
 import Buff from 'buffer/'
