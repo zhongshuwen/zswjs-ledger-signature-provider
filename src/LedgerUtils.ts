@@ -58,7 +58,7 @@ export type TransportType = keyof TransportCacheMap;
 class TransportManager {
   
   public transportMap: TransportCacheMap = {};
-  public publicKeyMap: {[type: string]:any};
+  public publicKeyMap: {[type: string]:any} = {};
   constructor(){
 
   }
