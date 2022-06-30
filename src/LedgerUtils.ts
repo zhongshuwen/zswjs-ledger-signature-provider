@@ -62,13 +62,13 @@ class TransportManager {
   constructor(){
 
   }
-  async getTransport(transportType: keyof TransportCacheMap): Promise<Transport>{
+  async getTransport(transportType: keyof TransportCacheMap, timeout = 60000): Promise<Transport>{
     if(this.transportMap.hasOwnProperty(transportType)&&this.transportMap[transportType]){
       return this.transportMap[transportType];
     }else{
       const _this = this;
       if(transportType === "usb"){
-        const transport = await TransportWebUSB.create()
+        const transport = await TransportWebUSB.create(timeout)
         this.transportMap.usb = transport;
         transport.on("disconnect",()=>{
           _this.clearPublicKeyCacheForTransportType("usb");
@@ -76,7 +76,7 @@ class TransportManager {
         })
         return transport;
       }else if(transportType === "bluetooth"){
-        const transport = await BluetoothTransport.create()
+        const transport = await BluetoothTransport.create(timeout)
         this.transportMap.bluetooth = transport;
         transport.on("disconnect",()=>{
           _this.clearPublicKeyCacheForTransportType("bluetooth");
@@ -114,8 +114,8 @@ class TransportManager {
     return pk;
   }
 
-  async getPublicKey(tpp: TransportPathPair, requestPermission = true): Promise<string>{
-    const transport = await this.getTransport(tpp.transportType);
+  async getPublicKey(tpp: TransportPathPair, requestPermission = true, getTransportTimeout = 60000): Promise<string>{
+    const transport = await this.getTransport(tpp.transportType, getTransportTimeout);
     
     return await (new Promise((resolve, reject) => {
       setTimeout(() => {
@@ -161,7 +161,7 @@ class TransportManager {
     { chainId, serializedTransaction }: { chainId: string, serializedTransaction: Uint8Array }
     ) {
     //const path = GET_LEDGER_PATHS(this.publicKeyIndex)
-    const transport = await getTransport(tpp.transportType);
+    const transport = await this.getTransport(tpp.transportType, 60000*5);
 
     const paths = bippath.fromString(tpp.path).toPathArray()
     let offset = 0
@@ -225,10 +225,6 @@ class TransportManager {
 }
 export const baseTransportManager = new TransportManager();
 
-
-export async function getTransport(transportType: keyof TransportCacheMap) {
-  return await baseTransportManager.getTransport(transportType);
-}
 
 export const convertSignatures = (sigs: string[]): string[] => {
   if (!Array.isArray(sigs)) {
