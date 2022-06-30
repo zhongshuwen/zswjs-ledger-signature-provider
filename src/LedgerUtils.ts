@@ -9,6 +9,7 @@ import Buff from 'buffer/'
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb'
 import BluetoothTransport from '@ledgerhq/hw-transport-web-ble'
 import bippath from 'bip32-path'
+import { convertLegacyPublicKey } from 'zswjs/dist/zswjs-numeric'
 declare const TextDecoder: any
 declare const TextEncoder: any
 
@@ -140,12 +141,12 @@ class TransportManager {
             const publicKeyLength = response[0]
             const addressLength = response[1 + publicKeyLength]
 
-            resolve(response
+            resolve(convertLegacyPublicKey(response
               .slice(
                 1 + publicKeyLength + 1,
                 1 + publicKeyLength + 1 + addressLength
               )
-              .toString('ascii'))
+              .toString('ascii')))
           }).catch((err: Error) => {
             reject(err)
           })
